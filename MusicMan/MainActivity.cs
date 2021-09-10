@@ -7,6 +7,13 @@ using AndroidX.AppCompat.Widget;
 using AndroidX.AppCompat.App;
 using Google.Android.Material.FloatingActionButton;
 using Google.Android.Material.Snackbar;
+using Android.Widget;
+using System.Collections.Generic;
+using System.Linq;
+using Google.Apis.YouTube.v3.Data;
+using Google.Apis.YouTube.v3;
+using Google.Apis.Services;
+using System.Threading.Tasks;
 
 namespace MusicMan
 {
@@ -19,12 +26,44 @@ namespace MusicMan
             Xamarin.Essentials.Platform.Init(this, savedInstanceState);
             SetContentView(Resource.Layout.activity_main);
 
-            Toolbar toolbar = FindViewById<Toolbar>(Resource.Id.toolbar);
+            AndroidX.AppCompat.Widget.Toolbar toolbar = FindViewById<AndroidX.AppCompat.Widget.Toolbar>(Resource.Id.toolbar);
             SetSupportActionBar(toolbar);
-            Console.WriteLine("Gay");
 
             FloatingActionButton fab = FindViewById<FloatingActionButton>(Resource.Id.fab);
             fab.Click += FabOnClick;
+
+            Button downloadButton = FindViewById<Button>(Resource.Id.DownloadButton);
+            downloadButton.Click += DownloadButton_Click;
+        }
+
+        private async void DownloadButton_Click(object sender, EventArgs e)
+        {
+            string link = FindViewById<EditText>(Resource.Id.UrlEditText).Text;
+
+            var youtubeService = new YouTubeService(new BaseClientService.Initializer()
+            {
+                ApiKey = "AIzaSyDJbgsQ6V6URc8GRdgnQdnuer_EWWogDKQ",
+                ApplicationName = "MusicMan"
+            });
+
+            var searchListRequerst = youtubeService.Search.List("snippet");
+            searchListRequerst.Q = "Metallica";
+            searchListRequerst.MaxResults = 5;
+
+            try
+            {
+                await ExecuteSearch(searchListRequerst);
+            }
+            catch (Exception ex)
+            {
+                
+            }
+
+        }
+
+        private async Task ExecuteSearch(SearchResource.ListRequest request)
+        {
+            var searchListResponse = await request.ExecuteAsync();
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
