@@ -14,6 +14,9 @@ using Google.Apis.YouTube.v3.Data;
 using Google.Apis.YouTube.v3;
 using Google.Apis.Services;
 using System.Threading.Tasks;
+using YoutubeExplode;
+using YoutubeExplode.Videos.Streams;
+using System.IO;
 
 namespace MusicMan
 {
@@ -50,20 +53,91 @@ namespace MusicMan
             searchListRequerst.Q = "Metallica";
             searchListRequerst.MaxResults = 5;
 
+            SearchListResponse response = new SearchListResponse();
+
             try
             {
-                await ExecuteSearch(searchListRequerst);
+                response = await ExecuteSearch(searchListRequerst);
             }
-            catch (Exception ex)
+            catch
             {
                 
             }
 
+            var youtube = new YoutubeClient();
+            YoutubeExplode.Videos.Video video = null;
+
+            try
+            {
+                video = await GetMetaData("https://www.youtube.com/watch?v=SrdthGuaXNk", youtube);
+            }
+            catch 
+            {
+
+            }
+
+            var title = video.Title; 
+            var author = video.Author.Title; 
+            var duration = video.Duration;
+
+            StreamManifest manifest = null;
+
+            try
+            {
+                manifest = await GetStreamManifest("SrdthGuaXNk", youtube);
+            }
+            catch
+            {
+
+            }
+
+
+            var streamInfo = manifest.GetVideoOnlyStreams().Where(s => s.Container == Container.Mp4).GetWithHighestVideoQuality();
+            Stream videoStream = null;
+
+            try
+            {
+                videoStream = await GetActualStream(youtube, streamInfo);
+            }
+            catch
+            {
+
+            }
+
+            try
+            {
+                await DonwloadVideo(youtube, streamInfo);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
         }
 
-        private async Task ExecuteSearch(SearchResource.ListRequest request)
+        private async Task<SearchListResponse> ExecuteSearch(SearchResource.ListRequest request)
         {
-            var searchListResponse = await request.ExecuteAsync();
+            return await request.ExecuteAsync();
+        }
+
+        private async Task<YoutubeExplode.Videos.Video> GetMetaData(string url, YoutubeClient client)
+        {
+            return await client.Videos.GetAsync(url);
+        }
+
+        private async Task<YoutubeExplode.Videos.Streams.StreamManifest> GetStreamManifest(string videoId, YoutubeClient client)
+        {
+            return await client.Videos.Streams.GetManifestAsync(videoId);
+        }
+
+        private async Task<Stream> GetActualStream(YoutubeClient client, IStreamInfo streamInfo)
+        {
+            return await client.Videos.Streams.GetAsync(streamInfo);
+        }
+
+        private async Task DonwloadVideo(YoutubeClient client, IStreamInfo streamInfo)
+        {
+            string testPath = Application.Context.GetExternalFilesDir("").AbsolutePath + $"test.mp4";
+            await client.Videos.Streams.DownloadAsync(streamInfo, testPath);
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
