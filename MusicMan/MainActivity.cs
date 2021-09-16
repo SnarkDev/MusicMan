@@ -10,12 +10,10 @@ using Google.Android.Material.Snackbar;
 using Android.Widget;
 using System.Collections.Generic;
 using System.Linq;
-using Google.Apis.YouTube.v3.Data;
-using Google.Apis.YouTube.v3;
-using Google.Apis.Services;
 using System.Threading.Tasks;
 using YoutubeExplode;
 using YoutubeExplode.Videos.Streams;
+using YoutubeExplode.Videos;
 using System.IO;
 
 namespace MusicMan
@@ -43,88 +41,72 @@ namespace MusicMan
         {
             string link = FindViewById<EditText>(Resource.Id.UrlEditText).Text;
 
-            var youtubeService = new YouTubeService(new BaseClientService.Initializer()
-            {
-                ApiKey = "AIzaSyDJbgsQ6V6URc8GRdgnQdnuer_EWWogDKQ",
-                ApplicationName = "MusicMan"
-            });
-
-            var searchListRequerst = youtubeService.Search.List("snippet");
-            searchListRequerst.Q = "Metallica";
-            searchListRequerst.MaxResults = 5;
-
-            SearchListResponse response = new SearchListResponse();
-
-            try
-            {
-                response = await ExecuteSearch(searchListRequerst);
-            }
-            catch
-            {
-                
-            }
-
             var youtube = new YoutubeClient();
-            YoutubeExplode.Videos.Video video = null;
-
-            try
-            {
-                video = await GetMetaData("https://www.youtube.com/watch?v=SrdthGuaXNk", youtube);
-            }
-            catch 
-            {
-
-            }
-
-            var title = video.Title; 
-            var author = video.Author.Title; 
-            var duration = video.Duration;
-
+            Video video = null;
             StreamManifest manifest = null;
+            Stream videoStream = null;
+
+            //try
+            //{
+            //    video = await GetMetaData("https://www.youtube.com/watch?v=SrdthGuaXNk", youtube);
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine(ex.ToString());
+            //}
+
+            //var title = video.Title; 
+            //var author = video.Author.Title; 
+            //var duration = video.Duration;
 
             try
             {
                 manifest = await GetStreamManifest("SrdthGuaXNk", youtube);
             }
-            catch
+            catch (Exception ex)
             {
-
+                Console.WriteLine(ex.ToString());
             }
 
+            var videoStreamInfo = manifest.GetVideoOnlyStreams().Where(s => s.Container == Container.Mp4).GetWithHighestVideoQuality();
+            var audioStreamInfo = manifest.GetAudioStreams().GetWithHighestBitrate();
 
-            var streamInfo = manifest.GetVideoOnlyStreams().Where(s => s.Container == Container.Mp4).GetWithHighestVideoQuality();
-            Stream videoStream = null;
+            //try
+            //{
+            //    videoStream = await GetActualStream(youtube, streamInfo);
+            //}
+            //catch (Exception ex)
+            //{
+            //    Console.WriteLine(ex.ToString());
+            //}
 
             try
             {
-                videoStream = await GetActualStream(youtube, streamInfo);
-            }
-            catch
-            {
-
-            }
-
-            try
-            {
-                await DonwloadVideo(youtube, streamInfo);
+                await DonwloadVideo(youtube, videoStreamInfo);
             }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.ToString());
             }
+
+            try
+            {
+                await DonwloadAudio(youtube, audioStreamInfo);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.ToString());
+            }
+
+            Console.WriteLine("** Downloaded Data **");
         }
 
-        private async Task<SearchListResponse> ExecuteSearch(SearchResource.ListRequest request)
-        {
-            return await request.ExecuteAsync();
-        }
-
-        private async Task<YoutubeExplode.Videos.Video> GetMetaData(string url, YoutubeClient client)
+        private async Task<Video> GetMetaData(string url, YoutubeClient client)
         {
             return await client.Videos.GetAsync(url);
         }
 
-        private async Task<YoutubeExplode.Videos.Streams.StreamManifest> GetStreamManifest(string videoId, YoutubeClient client)
+        private async Task<StreamManifest> GetStreamManifest(string videoId, YoutubeClient client)
         {
             return await client.Videos.Streams.GetManifestAsync(videoId);
         }
@@ -138,6 +120,12 @@ namespace MusicMan
         {
             string testPath = Application.Context.GetExternalFilesDir("").AbsolutePath + $"test.mp4";
             await client.Videos.Streams.DownloadAsync(streamInfo, testPath);
+        }
+
+        private async Task DonwloadAudio(YoutubeClient client, IStreamInfo streamInfo)
+        {
+            string musicPath = Android.OS.Environment.GetExternalStoragePublicDirectory(Android.OS.Environment.DirectoryMusic).AbsolutePath + $"/test.mp3";
+            await client.Videos.Streams.DownloadAsync(streamInfo, musicPath);
         }
 
         public override bool OnCreateOptionsMenu(IMenu menu)
